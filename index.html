@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Delivery Store</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Home Delivery Store</h1>
+        <div id="search-section">
+            <input type="text" id="search-input" placeholder="Search products...">
+            <select id="category-filter">
+                <option value="">All Categories</option>
+            </select>
+        </div>
+        <div id="header-actions">
+            <div id="cart-icon">
+                <span id="cart-count">0</span>
+                🛒
+            </div>
+            <div id="login-section">
+                <button id="login-btn">Admin Login</button>
+                <button id="logout-btn" style="display:none;">Logout</button>
+                <button id="reset-password-btn" style="display:none;">Reset Password</button>
+            </div>
+        </div>
+    </header>
+    <main>
+        <section id="add-item" style="display:none;">
+            <h2>Add New Item</h2>
+            <form id="item-form">
+                <label for="item-name">Item Name:</label>
+                <input type="text" id="item-name" required>
+                <label for="item-category">Category:</label>
+                <input type="text" id="item-category" required>
+                <label for="item-price">Price:</label>
+                <input type="number" id="item-price" step="0.01" required>
+                <label for="item-description">Description:</label>
+                <textarea id="item-description" required></textarea>
+                <label for="item-image">Image:</label>
+                <input type="file" id="item-image" accept="image/*" required>
+                <button type="submit">Add Item</button>
+            </form>
+        </section>
+        <section id="items-display">
+            <h2>Available Items</h2>
+            <div id="items-container"></div>
+        </section>
+        <!-- Cart Section -->
+        <section id="cart-section" style="display:none;">
+            <h2>Your Cart</h2>
+            <div id="cart-items"></div>
+            <div id="cart-total">Total: ₹0</div>
+            <button id="checkout-btn">Checkout</button>
+            <button id="continue-shopping-btn">Continue Shopping</button>
+        </section>
+        <!-- Customer Order Form -->
+        <section id="customer-form" style="display:none;">
+            <h2>Customer Details</h2>
+            <form id="order-form">
+                <label for="customer-name">Name:</label>
+                <input type="text" id="customer-name" required>
+                <label for="customer-number">Phone Number:</label>
+                <input type="tel" id="customer-number" required>
+                <label for="customer-address">Address:</label>
+                <textarea id="customer-address" required></textarea>
+                <button type="submit">Order</button>
+                <button type="button" id="cancel-order">Cancel</button>
+            </form>
+        </section>
+        <!-- Payment Options -->
+        <section id="payment-options" style="display:none;">
+            <h2>Payment Method</h2>
+            <button id="online-payment">Online Payment</button>
+            <button id="cod-payment">Cash on Delivery</button>
+            <button id="back-to-form">Back</button>
+        </section>
+        <!-- Online Payment -->
+        <section id="online-payment-section" style="display:none;">
+            <h2>Online Payment</h2>
+            <p>Pay to this number: <strong>9982154901</strong></p>
+            <label for="payment-screenshot">Upload Payment Screenshot:</label>
+            <input type="file" id="payment-screenshot" accept="image/*" required>
+            <button id="place-order-online">Place Order</button>
+            <button id="back-to-payment">Back</button>
+        </section>
+        <!-- Admin Dashboard -->
+        <section id="admin-dashboard" style="display:none;">
+            <h2>Admin Dashboard</h2>
+            <div id="orders-container"></div>
+        </section>
+    </main>
+    <!-- Modal for item details -->
+    <div id="item-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="modal">
+        <div class="modal-content success-content">
+            <div class="success-icon">✓</div>
+            <h2>Congratulations!</h2>
+            <p>Order placed successfully!</p>
+            <button id="success-close">OK</button>
+        </div>
+    </div>
+    <footer>
+        <button id="help-us-btn">Help Us</button>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
