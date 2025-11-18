@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const continueShoppingBtn = document.getElementById('continue-shopping-btn');
 
     let isAdmin = false;
-    let items = JSON.parse(localStorage.getItem('items')) || [];
+    let items = [];
     let orders = JSON.parse(localStorage.getItem('orders')) || [];
     let cart = JSON.parse(localStorage.getItem('cart')) || [];
     let currentItem = null;
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let resetLockTime = localStorage.getItem('resetLockTime');
     let loginAttempts = 0;
     let loginLockTime = localStorage.getItem('loginLockTime');
-    let filteredItems = [...items];
+    let filteredItems = [];
 
     // Simple admin login (in real app, use proper authentication)
     loginBtn.addEventListener('click', function() {
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         if (!isAdmin) {
@@ -141,17 +141,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (imageFile) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const imageUrl = e.target.result;
-                const item = { name, category, price, description, imageUrl, id: Date.now() };
-                items.push(item);
-                localStorage.setItem('items', JSON.stringify(items));
-                filteredItems = [...items];
-                updateCategories();
-                displayFilteredItems();
-
-                // Clear form
-                form.reset();
+                try {
+                    const docRef = await addDoc(collection(window.db, "items"), {
+                        name,
+                        category,
+                        price: parseFloat(price),
+                        description,
+                        imageUrl
+                    });
+                    alert('Item added successfully!');
+                    loadItems(); // Reload items from Firestore
+                    form.reset();
+                } catch (error) {
+                    console.error("Error adding item: ", error);
+                    alert('Error adding item. Please try again.');
+                }
             };
             reader.readAsDataURL(imageFile);
         }
@@ -235,7 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function editItem(id) {
+    async function editItem(id) {
         const item = items.find(i => i.id === id);
         if (item) {
             const newName = prompt('Enter new name:', item.name);
@@ -243,24 +249,34 @@ document.addEventListener('DOMContentLoaded', function() {
             const newDescription = prompt('Enter new description:', item.description);
 
             if (newName && newPrice && newDescription) {
-                item.name = newName;
-                item.price = newPrice;
-                item.description = newDescription;
-                localStorage.setItem('items', JSON.stringify(items));
-                refreshItems();
-                modal.style.display = 'none';
-                alert('Item updated successfully.');
+                try {
+                    await updateDoc(doc(window.db, "items", id), {
+                        name: newName,
+                        price: parseFloat(newPrice),
+                        description: newDescription
+                    });
+                    alert('Item updated successfully.');
+                    loadItems(); // Reload items from Firestore
+                    modal.style.display = 'none';
+                } catch (error) {
+                    console.error("Error updating item: ", error);
+                    alert('Error updating item. Please try again.');
+                }
             }
         }
     }
 
-    function deleteItem(id) {
+    async function deleteItem(id) {
         if (confirm('Are you sure you want to delete this item?')) {
-            items = items.filter(i => i.id !== id);
-            localStorage.setItem('items', JSON.stringify(items));
-            refreshItems();
-            modal.style.display = 'none';
-            alert('Item deleted successfully.');
+            try {
+                await deleteDoc(doc(window.db, "items", id));
+                alert('Item deleted successfully.');
+                loadItems(); // Reload items from Firestore
+                modal.style.display = 'none';
+            } catch (error) {
+                console.error("Error deleting item: ", error);
+                alert('Error deleting item. Please try again.');
+            }
         }
     }
 
@@ -293,23 +309,27 @@ document.addEventListener('DOMContentLoaded', function() {
         onlinePaymentSection.style.display = 'block';
     });
 
-    codPaymentBtn.addEventListener('click', function() {
+    codPaymentBtn.addEventListener('click', async function() {
         const orderItems = cart.length > 0 ? cart : [currentItem];
-        orderItems.forEach(item => {
-            const order = {
-                id: Date.now() + Math.random(),
-                item: item,
-                customer: currentCustomer,
-                paymentMode: 'Cash on Delivery'
-            };
-            orders.push(order);
-        });
-        localStorage.setItem('orders', JSON.stringify(orders));
-        cart = [];
-        localStorage.setItem('cart', JSON.stringify(cart));
-        updateCartCount();
-        if (isAdmin) displayOrders();
-        showSuccessModal();
+        try {
+            for (const item of orderItems) {
+                await addDoc(collection(window.db, "orders"), {
+                    item: item,
+                    customer: currentCustomer,
+                    paymentMode: 'Cash on Delivery',
+                    timestamp: new Date()
+                });
+            }
+            alert('Order placed successfully!');
+            cart = [];
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartCount();
+            if (isAdmin) loadOrders(); // Reload orders from Firestore
+            showSuccessModal();
+        } catch (error) {
+            console.error("Error placing order: ", error);
+            alert('Error placing order. Please try again.');
+        }
     });
 
     backToFormBtn.addEventListener('click', function() {
@@ -318,32 +338,36 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Online payment
-    placeOrderOnlineBtn.addEventListener('click', function() {
+    placeOrderOnlineBtn.addEventListener('click', async function() {
         const screenshot = document.getElementById('payment-screenshot').files[0];
         if (!screenshot) {
             alert('Please upload the payment screenshot.');
             return;
         }
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
             const screenshotUrl = e.target.result;
             const orderItems = cart.length > 0 ? cart : [currentItem];
-            orderItems.forEach(item => {
-                const order = {
-                    id: Date.now() + Math.random(),
-                    item: item,
-                    customer: currentCustomer,
-                    paymentMode: 'Online Payment',
-                    screenshot: screenshotUrl
-                };
-                orders.push(order);
-            });
-            localStorage.setItem('orders', JSON.stringify(orders));
-            cart = [];
-            localStorage.setItem('cart', JSON.stringify(cart));
-            updateCartCount();
-            if (isAdmin) displayOrders();
-            showSuccessModal();
+            try {
+                for (const item of orderItems) {
+                    await addDoc(collection(window.db, "orders"), {
+                        item: item,
+                        customer: currentCustomer,
+                        paymentMode: 'Online Payment',
+                        screenshot: screenshotUrl,
+                        timestamp: new Date()
+                    });
+                }
+                alert('Order placed successfully!');
+                cart = [];
+                localStorage.setItem('cart', JSON.stringify(cart));
+                updateCartCount();
+                if (isAdmin) loadOrders(); // Reload orders from Firestore
+                showSuccessModal();
+            } catch (error) {
+                console.error("Error placing order: ", error);
+                alert('Error placing order. Please try again.');
+            }
         };
         reader.readAsDataURL(screenshot);
     });
@@ -352,6 +376,20 @@ document.addEventListener('DOMContentLoaded', function() {
         onlinePaymentSection.style.display = 'none';
         paymentOptions.style.display = 'block';
     });
+
+    // Load orders from Firestore
+    async function loadOrders() {
+        try {
+            const querySnapshot = await getDocs(collection(window.db, "orders"));
+            orders = [];
+            querySnapshot.forEach((doc) => {
+                orders.push({ id: doc.id, ...doc.data() });
+            });
+            displayOrders();
+        } catch (error) {
+            console.error("Error loading orders: ", error);
+        }
+    }
 
     // Admin dashboard
     function displayOrders() {
@@ -381,7 +419,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${order.item.name}</td>
                 <td>${order.paymentMode}</td>
                 <td>${order.screenshot ? `<img src="${order.screenshot}" alt="Payment Screenshot" style="width: 100px; height: 100px; cursor: pointer; object-fit: cover;" onclick="enlargeImage('${order.screenshot}')">` : 'N/A'}</td>
-                <td><button class="delete-order-btn" data-index="${index}">Delete</button></td>
+                <td><button class="delete-order-btn" data-id="${order.id}">Delete</button></td>
             `;
             table.appendChild(row);
         });
@@ -391,18 +429,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const deleteBtns = ordersContainer.querySelectorAll('.delete-order-btn');
         deleteBtns.forEach(btn => {
             btn.addEventListener('click', function() {
-                const index = parseInt(this.dataset.index);
-                deleteOrder(index);
+                const id = this.dataset.id;
+                deleteOrder(id);
             });
         });
     }
 
-    function deleteOrder(index) {
+    async function deleteOrder(id) {
         if (confirm('Are you sure you want to delete this order?')) {
-            orders.splice(index, 1);
-            localStorage.setItem('orders', JSON.stringify(orders));
-            displayOrders();
-            alert('Order deleted successfully.');
+            try {
+                await deleteDoc(doc(window.db, "orders", id));
+                alert('Order deleted successfully.');
+                loadOrders(); // Reload orders from Firestore
+            } catch (error) {
+                console.error("Error deleting order: ", error);
+                alert('Error deleting order. Please try again.');
+            }
         }
     }
 
@@ -475,9 +517,24 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('items-display').style.display = 'block';
     });
 
+    // Load items from Firestore
+    async function loadItems() {
+        try {
+            const querySnapshot = await getDocs(collection(window.db, "items"));
+            items = [];
+            querySnapshot.forEach((doc) => {
+                items.push({ id: doc.id, ...doc.data() });
+            });
+            filteredItems = [...items];
+            updateCategories();
+            displayFilteredItems();
+        } catch (error) {
+            console.error("Error loading items: ", error);
+        }
+    }
+
     // Initialize
-    updateCategories();
-    displayFilteredItems();
+    loadItems();
     updateCartCount();
 
     function updateCategories() {
