@@ -697,15 +697,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // Countdown function for login lock
     function startCountdown() {
         if (countdownInterval) clearInterval(countdownInterval);
+        const countdownDisplay = document.createElement('div');
+        countdownDisplay.id = 'countdown-display';
+        countdownDisplay.style.position = 'fixed';
+        countdownDisplay.style.top = '50%';
+        countdownDisplay.style.left = '50%';
+        countdownDisplay.style.transform = 'translate(-50%, -50%)';
+        countdownDisplay.style.backgroundColor = 'rgba(0,0,0,0.8)';
+        countdownDisplay.style.color = 'white';
+        countdownDisplay.style.padding = '20px';
+        countdownDisplay.style.borderRadius = '10px';
+        countdownDisplay.style.fontSize = '24px';
+        countdownDisplay.style.zIndex = '1000';
+        document.body.appendChild(countdownDisplay);
+
         countdownInterval = setInterval(() => {
             if (loginLockTime && Date.now() < parseInt(loginLockTime)) {
                 const remainingTime = Math.ceil((parseInt(loginLockTime) - Date.now()) / 1000);
-                console.log(`Login locked. Try again in ${remainingTime} seconds.`);
+                countdownDisplay.textContent = `Login locked. Try again in ${remainingTime} seconds.`;
             } else {
                 clearInterval(countdownInterval);
+                document.body.removeChild(countdownDisplay);
                 localStorage.removeItem('loginLockTime');
                 loginLockTime = null;
-                console.log('Login lock expired.');
             }
         }, 1000);
     }
