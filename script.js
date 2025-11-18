@@ -49,12 +49,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Simple admin login (in real app, use proper authentication)
     loginBtn.addEventListener('click', function() {
         if (loginLockTime && Date.now() < parseInt(loginLockTime)) {
-            alert('Login is locked for 10 hours due to too many failed attempts.');
+            alert('Login is locked for 10 minutes due to too many failed attempts.');
             return;
         }
         const password = prompt('Enter admin password:');
         if (password === adminPassword) {
             isAdmin = true;
+            localStorage.setItem('isAdmin', 'true');
             addItemSection.style.display = 'block';
             adminDashboard.style.display = 'block';
             loginBtn.style.display = 'none';
@@ -67,9 +68,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             loginAttempts++;
             if (loginAttempts >= 3) {
-                loginLockTime = Date.now() + 10 * 60 * 60 * 1000; // 10 hours
+                loginLockTime = Date.now() + 10 * 60 * 1000; // 10 minutes
                 localStorage.setItem('loginLockTime', loginLockTime);
-                alert('Too many failed attempts. Login locked for 10 hours.');
+                alert('Too many failed attempts. Login locked for 10 minutes.');
             } else {
                 alert(`Incorrect password. ${3 - loginAttempts} attempts remaining.`);
             }
@@ -78,6 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     logoutBtn.addEventListener('click', function() {
         isAdmin = false;
+        localStorage.removeItem('isAdmin');
         addItemSection.style.display = 'none';
         adminDashboard.style.display = 'none';
         loginBtn.style.display = 'inline-block';
@@ -540,6 +542,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize
     loadItems();
     updateCartCount();
+
+    // Check if admin is logged in on page load
+    if (localStorage.getItem('isAdmin') === 'true') {
+        isAdmin = true;
+        addItemSection.style.display = 'block';
+        adminDashboard.style.display = 'block';
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+        resetPasswordBtn.style.display = 'inline-block';
+        displayOrders();
+    }
 
     // Load orders on page load if admin is logged in (but since login is required, this will be called after login)
     // For now, orders are loaded only when admin logs in
