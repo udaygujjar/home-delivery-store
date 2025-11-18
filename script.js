@@ -409,6 +409,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <th>Phone</th>
                 <th>Address</th>
                 <th>Item</th>
+                <th>Category</th>
+                <th>Price</th>
                 <th>Payment Mode</th>
                 <th>Screenshot</th>
                 <th>Actions</th>
@@ -421,6 +423,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${order.customer.number}</td>
                 <td>${order.customer.address}</td>
                 <td>${order.item.name}</td>
+                <td>${order.item.category || 'N/A'}</td>
+                <td>₹${order.item.price}</td>
                 <td>${order.paymentMode}</td>
                 <td>${order.screenshot ? `<img src="${order.screenshot}" alt="Payment Screenshot" style="width: 100px; height: 100px; cursor: pointer; object-fit: cover;" onclick="enlargeImage('${order.screenshot}')">` : 'N/A'}</td>
                 <td><button class="delete-order-btn" data-id="${order.id}">Delete</button></td>
