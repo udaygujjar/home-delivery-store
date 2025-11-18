@@ -45,11 +45,13 @@ document.addEventListener('DOMContentLoaded', function() {
     let loginAttempts = 0;
     let loginLockTime = localStorage.getItem('loginLockTime');
     let filteredItems = [];
+    let countdownInterval;
 
     // Simple admin login (in real app, use proper authentication)
     loginBtn.addEventListener('click', function() {
         if (loginLockTime && Date.now() < parseInt(loginLockTime)) {
-            alert('Login is locked for 10 minutes due to too many failed attempts.');
+            const remainingTime = Math.ceil((parseInt(loginLockTime) - Date.now()) / 1000);
+            alert(`Login is locked due to too many failed attempts. Try again in ${remainingTime} seconds.`);
             return;
         }
         const password = prompt('Enter admin password:');
@@ -69,9 +71,10 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             loginAttempts++;
             if (loginAttempts >= 3) {
-                loginLockTime = Date.now() + 10 * 60 * 1000; // 10 minutes
+                loginLockTime = Date.now() + 30 * 1000; // 30 seconds
                 localStorage.setItem('loginLockTime', loginLockTime);
-                alert('Too many failed attempts. Login locked for 10 minutes.');
+                startCountdown();
+                alert('Too many failed attempts. Login locked for 30 seconds.');
             } else {
                 alert(`Incorrect password. ${3 - loginAttempts} attempts remaining.`);
             }
@@ -690,6 +693,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
+
+    // Countdown function for login lock
+    function startCountdown() {
+        if (countdownInterval) clearInterval(countdownInterval);
+        countdownInterval = setInterval(() => {
+            if (loginLockTime && Date.now() < parseInt(loginLockTime)) {
+                const remainingTime = Math.ceil((parseInt(loginLockTime) - Date.now()) / 1000);
+                console.log(`Login locked. Try again in ${remainingTime} seconds.`);
+            } else {
+                clearInterval(countdownInterval);
+                localStorage.removeItem('loginLockTime');
+                loginLockTime = null;
+                console.log('Login lock expired.');
+            }
+        }, 1000);
+    }
 
     // Make showItemDetails global
     window.showItemDetails = function(id) {
