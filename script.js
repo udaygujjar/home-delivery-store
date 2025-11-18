@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let cart = JSON.parse(localStorage.getItem('cart')) || [];
     let currentItem = null;
     let currentCustomer = null;
-    let adminPassword = localStorage.getItem('adminPassword') || 'admin123';
+    let adminPassword = 'admin123'; // Default, will be loaded from Firestore
     let resetAttempts = 0;
     let resetLockTime = localStorage.getItem('resetLockTime');
     let loginAttempts = 0;
@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
             logoutBtn.style.display = 'inline-block';
             resetPasswordBtn.style.display = 'inline-block';
             displayOrders();
+            displayFilteredItems(); // Refresh items display for admin buttons
             loginAttempts = 0;
             localStorage.removeItem('loginLockTime');
             alert('Logged in as admin.');
@@ -85,11 +86,12 @@ document.addEventListener('DOMContentLoaded', function() {
         loginBtn.style.display = 'inline-block';
         logoutBtn.style.display = 'none';
         resetPasswordBtn.style.display = 'none';
+        displayFilteredItems(); // Refresh items display to remove admin buttons
         alert('Logged out.');
     });
 
     // Password reset
-    resetPasswordBtn.addEventListener('click', function() {
+    resetPasswordBtn.addEventListener('click', async function() {
         if (resetLockTime && Date.now() < parseInt(resetLockTime)) {
             alert('Password reset is locked for 10 hours due to too many failed attempts.');
             return;
@@ -98,11 +100,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (oldPassword === adminPassword) {
             const newPassword = prompt('Enter new password:');
             if (newPassword) {
-                adminPassword = newPassword;
-                localStorage.setItem('adminPassword', adminPassword);
-                resetAttempts = 0;
-                localStorage.removeItem('resetLockTime');
-                alert('Password reset successfully.');
+                try {
+                    await updateDoc(doc(window.db, "admin", "settings"), { password: newPassword });
+                    adminPassword = newPassword;
+                    resetAttempts = 0;
+                    localStorage.removeItem('resetLockTime');
+                    alert('Password reset successfully.');
+                } catch (error) {
+                    console.error("Error updating password:", error);
+                    alert('Error resetting password. Please try again.');
+                }
             }
         } else {
             resetAttempts++;
@@ -169,29 +176,52 @@ document.addEventListener('DOMContentLoaded', function() {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'item';
         itemDiv.dataset.id = item.id;
-        itemDiv.innerHTML = `
-            <img src="${item.imageUrl}" alt="${item.name}" onclick="showItemDetails(${item.id})">
-            <h3>${item.name}</h3>
-            <p><strong>Price:</strong> ₹${item.price}</p>
-            <p>${item.description}</p>
-            <button class="add-to-cart-btn">Add to Cart</button>
-            <button class="buy-btn">Buy Now</button>
-        `;
+        if (isAdmin) {
+            itemDiv.innerHTML = `
+                <img src="${item.imageUrl}" alt="${item.name}" onclick="showItemDetails(${item.id})">
+                <h3>${item.name}</h3>
+                <p><strong>Price:</strong> ₹${item.price}</p>
+                <p>${item.description}</p>
+                <button class="edit-btn" data-id="${item.id}">Edit</button>
+                <button class="delete-btn" data-id="${item.id}">Delete</button>
+            `;
 
-        // Add to cart functionality
-        const addToCartBtn = itemDiv.querySelector('.add-to-cart-btn');
-        addToCartBtn.addEventListener('click', function() {
-            addToCart(item);
-        });
+            // Add edit functionality
+            const editBtn = itemDiv.querySelector('.edit-btn');
+            editBtn.addEventListener('click', function() {
+                editItem(item.id);
+            });
 
-        // Add buy functionality
-        const buyBtn = itemDiv.querySelector('.buy-btn');
-        buyBtn.addEventListener('click', function() {
-            currentItem = item;
-            modal.style.display = 'none';
-            customerForm.style.display = 'block';
-            document.getElementById('items-display').style.display = 'none';
-        });
+            // Add delete functionality
+            const deleteBtn = itemDiv.querySelector('.delete-btn');
+            deleteBtn.addEventListener('click', function() {
+                deleteItem(item.id);
+            });
+        } else {
+            itemDiv.innerHTML = `
+                <img src="${item.imageUrl}" alt="${item.name}" onclick="showItemDetails(${item.id})">
+                <h3>${item.name}</h3>
+                <p><strong>Price:</strong> ₹${item.price}</p>
+                <p>${item.description}</p>
+                <button class="add-to-cart-btn">Add to Cart</button>
+                <button class="buy-btn">Buy Now</button>
+            `;
+
+            // Add to cart functionality
+            const addToCartBtn = itemDiv.querySelector('.add-to-cart-btn');
+            addToCartBtn.addEventListener('click', function() {
+                addToCart(item);
+            });
+
+            // Add buy functionality
+            const buyBtn = itemDiv.querySelector('.buy-btn');
+            buyBtn.addEventListener('click', function() {
+                currentItem = item;
+                modal.style.display = 'none';
+                customerForm.style.display = 'block';
+                document.getElementById('items-display').style.display = 'none';
+            });
+        }
 
         // Add to container
         itemsContainer.appendChild(itemDiv);
@@ -543,9 +573,29 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Load admin password from Firestore
+    async function loadAdminPassword() {
+        try {
+            const docRef = doc(window.db, "admin", "settings");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                adminPassword = docSnap.data().password;
+            } else {
+                // Set default
+                await setDoc(docRef, { password: 'admin123' });
+                adminPassword = 'admin123';
+            }
+        } catch (error) {
+            console.error("Error loading admin password:", error);
+            adminPassword = 'admin123'; // fallback
+        }
+    }
+
     // Initialize
-    loadItems();
-    updateCartCount();
+    loadAdminPassword().then(() => {
+        loadItems();
+        updateCartCount();
+    });
 
     // Check if admin is logged in on page load
     if (localStorage.getItem('isAdmin') === 'true') {
