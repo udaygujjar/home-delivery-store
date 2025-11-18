@@ -537,6 +537,9 @@ document.addEventListener('DOMContentLoaded', function() {
     loadItems();
     updateCartCount();
 
+    // Load orders on page load if admin is logged in (but since login is required, this will be called after login)
+    // For now, orders are loaded only when admin logs in
+
     function updateCategories() {
         const categories = [...new Set(items.map(item => item.category).filter(cat => cat))];
         categoryFilter.innerHTML = '<option value="">All Categories</option>';
