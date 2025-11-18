@@ -242,6 +242,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function editItem(id) {
+        alert("Editing item: " + id);
         const item = items.find(i => i.id === id);
         if (item) {
             const newName = prompt('Enter new name:', item.name);
@@ -267,6 +268,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function deleteItem(id) {
+        alert("Deleting item: " + id);
         if (confirm('Are you sure you want to delete this item?')) {
             try {
                 await deleteDoc(doc(window.db, "items", id));
