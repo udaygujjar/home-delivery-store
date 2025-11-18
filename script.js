@@ -520,11 +520,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load items from Firestore
     async function loadItems() {
         try {
+            console.log("Loading items from Firestore...");
             const querySnapshot = await getDocs(collection(window.db, "items"));
             items = [];
             querySnapshot.forEach((doc) => {
                 items.push({ id: doc.id, ...doc.data() });
             });
+            console.log("Loaded items:", items);
             filteredItems = [...items];
             updateCategories();
             displayFilteredItems();
