@@ -9,6 +9,10 @@
 <body>
     <header>
         <h1>Home Delivery Store</h1>
+        <nav id="main-nav">
+            <button id="home-nav">Home</button>
+            <button id="your-orders-nav">🛍️ Your Orders</button>
+        </nav>
         <div id="search-section">
             <input type="text" id="search-input" placeholder="Search products...">
             <select id="category-filter">
@@ -53,6 +57,11 @@
             <h2>Your Cart</h2>
             <div id="cart-items"></div>
             <div id="cart-total">Total: ₹0</div>
+            <div id="cart-quantity-controls">
+                <button id="decrease-qty">-</button>
+                <span id="current-qty">1</span>
+                <button id="increase-qty">+</button>
+            </div>
             <button id="checkout-btn">Checkout</button>
             <button id="continue-shopping-btn">Continue Shopping</button>
         </section>
@@ -100,15 +109,21 @@
         </div>
     </div>
 
-    <!-- Success Modal -->
-    <div id="success-modal" class="modal">
-        <div class="modal-content success-content">
-            <div class="success-icon">✓</div>
-            <h2>Congratulations!</h2>
-            <p>Order placed successfully!</p>
-            <button id="success-close">OK</button>
+        <!-- Success Modal -->
+        <div id="success-modal" class="modal">
+            <div class="modal-content success-content">
+                <div class="success-icon">✓</div>
+                <h2>Congratulations!</h2>
+                <p>Order placed successfully!</p>
+                <button id="success-close">OK</button>
+            </div>
         </div>
-    </div>
+
+        <!-- Your Orders Section -->
+        <section id="your-orders-section" style="display:none;">
+            <h2>🛍️ Your Orders</h2>
+            <div id="customer-orders-container"></div>
+        </section>
     <footer>
         <button id="help-us-btn">Help Us</button>
     </footer>
@@ -116,7 +131,7 @@
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // Your web app's Firebase configuration
         const firebaseConfig = {

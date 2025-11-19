@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const newPassword = prompt('Enter new password:');
             if (newPassword) {
                 try {
-                    await updateDoc(doc(window.db, "admin", "settings"), { password: newPassword });
+                    await setDoc(doc(window.db, "admin", "settings"), { password: newPassword });
                     adminPassword = newPassword;
                     resetAttempts = 0;
                     localStorage.removeItem('resetLockTime');
@@ -206,20 +206,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 <h3>${item.name}</h3>
                 <p><strong>Price:</strong> ₹${item.price}</p>
                 <p>${item.description}</p>
+                <div class="quantity-controls">
+                    <button class="decrease-qty">-</button>
+                    <span class="item-qty">1</span>
+                    <button class="increase-qty">+</button>
+                </div>
                 <button class="add-to-cart-btn">Add to Cart</button>
                 <button class="buy-btn">Buy Now</button>
             `;
 
+            // Quantity controls
+            const decreaseBtn = itemDiv.querySelector('.decrease-qty');
+            const increaseBtn = itemDiv.querySelector('.increase-qty');
+            const qtySpan = itemDiv.querySelector('.item-qty');
+            let qty = 1;
+
+            decreaseBtn.addEventListener('click', function() {
+                if (qty > 1) {
+                    qty--;
+                    qtySpan.textContent = qty;
+                }
+            });
+
+            increaseBtn.addEventListener('click', function() {
+                qty++;
+                qtySpan.textContent = qty;
+            });
+
             // Add to cart functionality
             const addToCartBtn = itemDiv.querySelector('.add-to-cart-btn');
             addToCartBtn.addEventListener('click', function() {
-                addToCart(item);
+                addToCart(item, qty);
             });
 
             // Add buy functionality
             const buyBtn = itemDiv.querySelector('.buy-btn');
             buyBtn.addEventListener('click', function() {
-                currentItem = item;
+                currentItem = { ...item, quantity: qty };
                 modal.style.display = 'none';
                 customerForm.style.display = 'block';
                 document.getElementById('items-display').style.display = 'none';
@@ -348,15 +371,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     codPaymentBtn.addEventListener('click', async function() {
         const orderItems = cart.length > 0 ? cart : [currentItem];
+        let orderIds = [];
         try {
             for (const item of orderItems) {
-                await addDoc(collection(window.db, "orders"), {
+                const docRef = await addDoc(collection(window.db, "orders"), {
                     item: item,
                     customer: currentCustomer,
                     paymentMode: 'Cash on Delivery',
+                    status: 'pending',
                     timestamp: new Date()
                 });
+                orderIds.push(docRef.id);
             }
+            // Store order IDs in localStorage for customer to view
+            let customerOrders = JSON.parse(localStorage.getItem('customerOrders')) || [];
+            customerOrders.push(...orderIds);
+            localStorage.setItem('customerOrders', JSON.stringify(customerOrders));
             alert('Order placed successfully!');
             cart = [];
             localStorage.setItem('cart', JSON.stringify(cart));
@@ -385,16 +415,23 @@ document.addEventListener('DOMContentLoaded', function() {
         reader.onload = async function(e) {
             const screenshotUrl = e.target.result;
             const orderItems = cart.length > 0 ? cart : [currentItem];
+            let orderIds = [];
             try {
                 for (const item of orderItems) {
-                    await addDoc(collection(window.db, "orders"), {
+                    const docRef = await addDoc(collection(window.db, "orders"), {
                         item: item,
                         customer: currentCustomer,
                         paymentMode: 'Online Payment',
                         screenshot: screenshotUrl,
+                        status: 'pending',
                         timestamp: new Date()
                     });
+                    orderIds.push(docRef.id);
                 }
+                // Store order IDs in localStorage for customer to view
+                let customerOrders = JSON.parse(localStorage.getItem('customerOrders')) || [];
+                customerOrders.push(...orderIds);
+                localStorage.setItem('customerOrders', JSON.stringify(customerOrders));
                 alert('Order placed successfully!');
                 cart = [];
                 localStorage.setItem('cart', JSON.stringify(cart));
@@ -430,9 +467,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Admin dashboard
     function displayOrders() {
-        ordersContainer.innerHTML = '<h3>Orders</h3>';
+        ordersContainer.innerHTML = '<nav id="admin-nav"><button id="items-nav">Items</button><button id="orders-nav">Orders</button><button id="successful-orders-nav">Successful Orders</button></nav><div id="items-section" style="display:none;"></div><div id="orders-section"></div><div id="successful-orders-section" style="display:none;"></div>';
+        const ordersSection = document.getElementById('orders-section');
+        ordersSection.innerHTML = '<h3>Orders</h3>';
         if (orders.length === 0) {
-            ordersContainer.innerHTML += '<p>No orders yet.</p>';
+            ordersSection.innerHTML += '<p>No orders yet.</p>';
             return;
         }
         const table = document.createElement('table');
@@ -442,37 +481,70 @@ document.addEventListener('DOMContentLoaded', function() {
                 <th>Phone</th>
                 <th>Address</th>
                 <th>Item</th>
-                <th>Category</th>
+                <th>Quantity</th>
                 <th>Price</th>
+                <th>Total</th>
                 <th>Payment Mode</th>
                 <th>Screenshot</th>
                 <th>Actions</th>
             </tr>
         `;
         orders.forEach((order, index) => {
+            const total = order.item.price * (order.item.quantity || 1);
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${order.customer.name}</td>
                 <td>${order.customer.number}</td>
                 <td>${order.customer.address}</td>
                 <td>${order.item.name}</td>
-                <td>${order.item.category || 'N/A'}</td>
+                <td>${order.item.quantity || 1}</td>
                 <td>₹${order.item.price}</td>
+                <td>₹${total}</td>
                 <td>${order.paymentMode}</td>
                 <td>${order.screenshot ? `<img src="${order.screenshot}" alt="Payment Screenshot" style="width: 100px; height: 100px; cursor: pointer; object-fit: cover;" onclick="enlargeImage('${order.screenshot}')">` : 'N/A'}</td>
-                <td><button class="delete-order-btn" data-id="${order.id}">Delete</button></td>
+                <td><button class="delete-order-btn" data-id="${order.id}">Delete</button><button class="mark-successful-btn" data-id="${order.id}">Mark Successful</button></td>
             `;
             table.appendChild(row);
         });
-        ordersContainer.appendChild(table);
+        ordersSection.appendChild(table);
 
         // Add event listeners for delete buttons
-        const deleteBtns = ordersContainer.querySelectorAll('.delete-order-btn');
+        const deleteBtns = ordersSection.querySelectorAll('.delete-order-btn');
         deleteBtns.forEach(btn => {
             btn.addEventListener('click', function() {
                 const id = this.dataset.id;
                 deleteOrder(id);
             });
+        });
+
+        // Add event listeners for mark successful buttons
+        const successfulBtns = ordersSection.querySelectorAll('.mark-successful-btn');
+        successfulBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                markOrderSuccessful(id);
+            });
+        });
+
+        // Navigation
+        document.getElementById('items-nav').addEventListener('click', function() {
+            document.getElementById('items-section').style.display = 'block';
+            document.getElementById('orders-section').style.display = 'none';
+            document.getElementById('successful-orders-section').style.display = 'none';
+            displayItemsAdmin();
+        });
+
+        document.getElementById('orders-nav').addEventListener('click', function() {
+            document.getElementById('items-section').style.display = 'none';
+            document.getElementById('orders-section').style.display = 'block';
+            document.getElementById('successful-orders-section').style.display = 'none';
+        });
+
+        document.getElementById('successful-orders-nav').addEventListener('click', function() {
+            document.getElementById('items-section').style.display = 'none';
+            document.getElementById('orders-section').style.display = 'none';
+            document.getElementById('successful-orders-section').style.display = 'block';
+            displaySuccessfulOrders();
         });
     }
 
@@ -533,6 +605,31 @@ document.addEventListener('DOMContentLoaded', function() {
     // Category filter
     categoryFilter.addEventListener('change', function() {
         filterItems();
+    });
+
+    // Home navigation
+    document.getElementById('home-nav').addEventListener('click', function() {
+        document.getElementById('items-display').style.display = 'block';
+        document.getElementById('cart-section').style.display = 'none';
+        document.getElementById('customer-form').style.display = 'none';
+        document.getElementById('payment-options').style.display = 'none';
+        document.getElementById('online-payment-section').style.display = 'none';
+        document.getElementById('your-orders-section').style.display = 'none';
+        document.getElementById('admin-dashboard').style.display = 'none';
+        document.getElementById('add-item').style.display = 'none';
+    });
+
+    // Your Orders navigation
+    document.getElementById('your-orders-nav').addEventListener('click', function() {
+        document.getElementById('your-orders-section').style.display = 'block';
+        document.getElementById('items-display').style.display = 'none';
+        document.getElementById('cart-section').style.display = 'none';
+        document.getElementById('customer-form').style.display = 'none';
+        document.getElementById('payment-options').style.display = 'none';
+        document.getElementById('online-payment-section').style.display = 'none';
+        document.getElementById('admin-dashboard').style.display = 'none';
+        document.getElementById('add-item').style.display = 'none';
+        displayCustomerOrders();
     });
 
     // Cart icon click
@@ -729,4 +826,161 @@ document.addEventListener('DOMContentLoaded', function() {
         const item = items.find(i => i.id === id);
         if (item) showItemDetails(item);
     };
+
+    // Display customer orders
+    async function displayCustomerOrders() {
+        const customerOrdersSection = document.getElementById('your-orders-section');
+        customerOrdersSection.innerHTML = '<h3>Your Orders</h3>';
+        const customerOrderIds = JSON.parse(localStorage.getItem('customerOrders')) || [];
+        if (customerOrderIds.length === 0) {
+            customerOrdersSection.innerHTML += '<p>No orders yet.</p>';
+            return;
+        }
+        let customerOrders = [];
+        try {
+            for (const orderId of customerOrderIds) {
+                const docRef = doc(window.db, "orders", orderId);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    customerOrders.push({ id: docSnap.id, ...docSnap.data() });
+                }
+            }
+        } catch (error) {
+            console.error("Error loading customer orders: ", error);
+        }
+        if (customerOrders.length === 0) {
+            customerOrdersSection.innerHTML += '<p>No orders found.</p>';
+            return;
+        }
+        const table = document.createElement('table');
+        table.innerHTML = `
+            <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total</th>
+                <th>Payment Mode</th>
+                <th>Status</th>
+                <th>Date</th>
+            </tr>
+        `;
+        customerOrders.forEach(order => {
+            const total = order.item.price * (order.item.quantity || 1);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${order.item.name}</td>
+                <td>${order.item.quantity || 1}</td>
+                <td>₹${order.item.price}</td>
+                <td>₹${total}</td>
+                <td>${order.paymentMode}</td>
+                <td>${order.status || 'pending'}</td>
+                <td>${order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
+            `;
+            table.appendChild(row);
+        });
+        customerOrdersSection.appendChild(table);
+    }
+
+    // Mark order as successful
+    async function markOrderSuccessful(id) {
+        try {
+            await updateDoc(doc(window.db, "orders", id), {
+                status: 'successful'
+            });
+            alert('Order marked as successful.');
+            loadOrders(); // Reload orders from Firestore
+        } catch (error) {
+            console.error("Error marking order successful: ", error);
+            alert('Error marking order successful. Please try again.');
+        }
+    }
+
+    // Display items in admin section
+    function displayItemsAdmin() {
+        const itemsSection = document.getElementById('items-section');
+        itemsSection.innerHTML = '<h3>Items</h3>';
+        if (items.length === 0) {
+            itemsSection.innerHTML += '<p>No items yet.</p>';
+            return;
+        }
+        const table = document.createElement('table');
+        table.innerHTML = `
+            <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Description</th>
+                <th>Actions</th>
+            </tr>
+        `;
+        items.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${item.name}</td>
+                <td>${item.category}</td>
+                <td>₹${item.price}</td>
+                <td>${item.description}</td>
+                <td><button class="edit-btn" data-id="${item.id}">Edit</button><button class="delete-btn" data-id="${item.id}">Delete</button></td>
+            `;
+            table.appendChild(row);
+        });
+        itemsSection.appendChild(table);
+
+        // Add event listeners for edit and delete buttons
+        const editBtns = itemsSection.querySelectorAll('.edit-btn');
+        editBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                editItem(this.dataset.id);
+            });
+        });
+
+        const deleteBtns = itemsSection.querySelectorAll('.delete-btn');
+        deleteBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                deleteItem(this.dataset.id);
+            });
+        });
+    }
+
+    // Display successful orders
+    function displaySuccessfulOrders() {
+        const successfulOrdersSection = document.getElementById('successful-orders-section');
+        successfulOrdersSection.innerHTML = '<h3>Successful Orders</h3>';
+        const successfulOrders = orders.filter(order => order.status === 'successful');
+        if (successfulOrders.length === 0) {
+            successfulOrdersSection.innerHTML += '<p>No successful orders yet.</p>';
+            return;
+        }
+        const table = document.createElement('table');
+        table.innerHTML = `
+            <tr>
+                <th>Customer Name</th>
+                <th>Phone</th>
+                <th>Address</th>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total</th>
+                <th>Payment Mode</th>
+                <th>Screenshot</th>
+            </tr>
+        `;
+        successfulOrders.forEach(order => {
+            const total = order.item.price * (order.item.quantity || 1);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${order.customer.name}</td>
+                <td>${order.customer.number}</td>
+                <td>${order.customer.address}</td>
+                <td>${order.item.name}</td>
+                <td>${order.item.quantity || 1}</td>
+                <td>₹${order.item.price}</td>
+                <td>₹${total}</td>
+                <td>${order.paymentMode}</td>
+                <td>${order.screenshot ? `<img src="${order.screenshot}" alt="Payment Screenshot" style="width: 100px; height: 100px; cursor: pointer; object-fit: cover;" onclick="enlargeImage('${order.screenshot}')">` : 'N/A'}</td>
+            `;
+            table.appendChild(row);
+        });
+        successfulOrdersSection.appendChild(table);
+    }
 });
